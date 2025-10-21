@@ -1,4 +1,4 @@
-// login.dart 파일 내용 .ㅇ
+// login.dart 파일 내용 .ㅇd
 
 import 'package:flutter/material.dart';
 // import 'package:google_sign_in/google_sign_in.dart'; // ⭐ API 연결 시 주석 해제
