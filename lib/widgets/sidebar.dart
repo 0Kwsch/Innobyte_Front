@@ -22,6 +22,7 @@ class NotesSidebarWidget extends StatelessWidget {
   final VoidCallback onCreateFolder;
   final VoidCallback onSettings;
   final Function(Folder) onFolderOptions;
+  final VoidCallback onAddPDF;
 
   const NotesSidebarWidget({
     super.key,
@@ -38,6 +39,7 @@ class NotesSidebarWidget extends StatelessWidget {
     required this.onCreateFolder,
     required this.onSettings,
     required this.onFolderOptions,
+    required this.onAddPDF,
   });
 
   @override
@@ -91,18 +93,7 @@ class NotesSidebarWidget extends StatelessWidget {
                       indent: 16,
                       endIndent: 16,
                     ),
-                    _buildSidebarItem(
-                      Icons.lock_outline,
-                      AppText.sidebarLocked,
-                      _getLockedCount(),
-                      4,
-                    ),
-                    _buildSidebarItem(
-                      Icons.visibility_off_outlined,
-                      AppText.sidebarHidden,
-                      _getHiddenCount(),
-                      5,
-                    ),
+                    _buildPDFSection(),
                     const Divider(
                       color: Colors.white24,
                       height: 24,
@@ -501,15 +492,57 @@ class NotesSidebarWidget extends StatelessWidget {
         .length;
   }
 
-  int _getLockedCount() {
-    return notes.where((n) => n.isLocked && !n.isInTrash).length;
-  }
-
-  int _getHiddenCount() {
-    return notes.where((n) => n.isHidden && !n.isInTrash).length;
-  }
-
   int _getTrashCount() {
     return notes.where((n) => n.isInTrash).length;
+  }
+
+  /// PDF 섹션 빌드
+  Widget _buildPDFSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.picture_as_pdf,
+                color: AppColors.textPrimary,
+                size: AppSizes.iconMedium,
+              ),
+              const SizedBox(width: AppSizes.paddingMedium),
+              const Expanded(
+                child: Text(
+                  'PDF 파일',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: AppSizes.fontLarge,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.add_circle_outline,
+                  color: AppColors.primaryColor,
+                  size: AppSizes.iconMedium,
+                ),
+                onPressed: onAddPDF,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.paddingSmall),
+          Text(
+            '첨부된 PDF 파일 없음',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: AppSizes.fontSmall,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

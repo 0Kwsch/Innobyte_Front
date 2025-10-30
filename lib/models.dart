@@ -29,6 +29,7 @@ class Note {
   String? folderName;
   List<String> tags;
   List<DrawingStroke> strokes;
+  List<PDFFile> attachedPdfs;  // 첨부된 PDF 파일들
 
   Note({
     required this.title,
@@ -43,6 +44,7 @@ class Note {
     this.folderName,
     this.tags = const [],
     this.strokes = const [],
+    this.attachedPdfs = const [],
   }) : createdDate = createdDate ?? date;
 }
 
@@ -74,4 +76,19 @@ class Folder {
     this.subfolders = const [],
     this.color = const Color(0xFF678AFB),
   });
+}
+
+/// PDF 파일 클래스
+class PDFFile {
+  final String name;           // PDF 파일명
+  final String path;           // 파일 경로
+  final DateTime addedDate;    // 추가된 날짜
+  final double fileSize;       // 파일 크기 (MB)
+
+  PDFFile({
+    required this.name,
+    required this.path,
+    DateTime? addedDate,
+    required this.fileSize,
+  }) : addedDate = addedDate ?? DateTime.now();
 }

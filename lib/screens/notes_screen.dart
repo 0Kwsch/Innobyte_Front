@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import '../constants.dart';
 import '../models.dart';
 import '../services.dart';
@@ -445,6 +446,49 @@ class _NotesHomePageState extends State<NotesHomePage>
     );
   }
 
+  void _showPDFPicker() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true,
+      );
+
+      if (result != null) {
+        for (var file in result.files) {
+          if (file.path != null) {
+            final pdfFile = PDFFile(
+              name: file.name,
+              path: file.path!,
+              fileSize: file.size / (1024 * 1024), // Convert to MB
+            );
+
+            // 선택된 노트에 PDF 추가
+            if (selectedNote != null) {
+              setState(() {
+                selectedNote!.attachedPdfs = [
+                  ...selectedNote!.attachedPdfs,
+                  pdfFile,
+                ];
+              });
+              _showSnackbar('${file.name}이(가) 추가되었습니다');
+            } else {
+              // 노트가 선택되지 않았으면 새 노트 생성 후 추가
+              final newNote = noteService.createNewNote();
+              setState(() {
+                selectedNote = newNote;
+                selectedNote!.attachedPdfs = [pdfFile];
+              });
+              _showSnackbar('새 노트에 ${file.name}이(가) 추가되었습니다');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      _showSnackbar('PDF 파일을 선택할 수 없습니다: $e');
+    }
+  }
+
   void _showMoreOptionsMenu() {
     showModalBottomSheet(
       context: context,
@@ -564,6 +608,7 @@ class _NotesHomePageState extends State<NotesHomePage>
             onCreateFolder: _showCreateFolderDialog,
             onSettings: _showSettingsDialog,
             onFolderOptions: _showFolderOptionsMenu,
+            onAddPDF: _showPDFPicker,
           ),
         ),
         // 메인 콘텐츠

@@ -36,6 +36,12 @@ class _DrawingEditorState extends State<DrawingEditor> {
   Color selectedColor = Colors.black;
   double strokeWidth = 3.0;
 
+  // ==================== 올가미 선택 관련 변수 ====================
+  List<Offset> lassoPath = [];
+  Set<DrawingStroke> selectedStrokes = {};
+  DrawingStroke? draggingStroke;
+  Offset? lastDragOffset;
+
   final List<Color> colorPalette = [
     Colors.black,
     Colors.red,
@@ -54,20 +60,49 @@ class _DrawingEditorState extends State<DrawingEditor> {
 
   void _onPanStart(DragStartDetails details) {
     setState(() {
-      currentStroke = [details.localPosition];
+      if (selectedTool == DrawingTool.lasso) {
+        // 올가미 도구: 경로 시작
+        lassoPath = [details.localPosition];
+      } else if (selectedStrokes.isNotEmpty) {
+        // 선택된 스트로크가 있으면 드래그로 이동
+        lastDragOffset = details.localPosition;
+      } else {
+        // 일반 그리기
+        currentStroke = [details.localPosition];
+      }
       undoneStrokes.clear();
     });
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
     setState(() {
-      currentStroke.add(details.localPosition);
+      if (selectedTool == DrawingTool.lasso) {
+        // 올가미 경로 추가
+        lassoPath.add(details.localPosition);
+      } else if (selectedStrokes.isNotEmpty && lastDragOffset != null) {
+        // 선택된 스트로크 이동
+        final delta = details.localPosition - lastDragOffset!;
+        for (var stroke in selectedStrokes) {
+          for (int i = 0; i < stroke.points.length; i++) {
+            stroke.points[i] = stroke.points[i] + delta;
+          }
+        }
+        lastDragOffset = details.localPosition;
+      } else {
+        // 일반 그리기
+        currentStroke.add(details.localPosition);
+      }
     });
   }
 
   void _onPanEnd(DragEndDetails details) {
-    if (currentStroke.isNotEmpty) {
-      setState(() {
+    setState(() {
+      if (selectedTool == DrawingTool.lasso && lassoPath.isNotEmpty) {
+        // 올가미로 선택된 스트로크 찾기
+        _selectStrokesWithinLasso();
+        lassoPath = [];
+      } else if (selectedStrokes.isEmpty && currentStroke.isNotEmpty) {
+        // 일반 그리기 완료
         strokes.add(
           DrawingStroke(
             points: List.from(currentStroke),
@@ -79,8 +114,61 @@ class _DrawingEditorState extends State<DrawingEditor> {
         currentStroke = [];
         widget.note.strokes = List.from(strokes);
         widget.onSave();
-      });
+      } else if (selectedStrokes.isNotEmpty) {
+        // 드래그 이동 완료
+        widget.note.strokes = List.from(strokes);
+        widget.onSave();
+      }
+      lastDragOffset = null;
+    });
+  }
+
+  /// 올가미 경로 내에 있는 스트로크 선택
+  void _selectStrokesWithinLasso() {
+    selectedStrokes.clear();
+    for (var stroke in strokes) {
+      if (_isStrokeWithinLasso(stroke)) {
+        selectedStrokes.add(stroke);
+      }
     }
+  }
+
+  /// 스트로크가 올가미 경로 내에 있는지 확인
+  bool _isStrokeWithinLasso(DrawingStroke stroke) {
+    for (var point in stroke.points) {
+      if (_isPointWithinLasso(point)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 점이 올가미 경로 내에 있는지 확인 (간단한 다각형 내부 판별)
+  bool _isPointWithinLasso(Offset point) {
+    if (lassoPath.length < 3) return false;
+
+    int intersections = 0;
+    for (int i = 0; i < lassoPath.length; i++) {
+      final p1 = lassoPath[i];
+      final p2 = lassoPath[(i + 1) % lassoPath.length];
+
+      if (_lineIntersectsRay(p1, p2, point)) {
+        intersections++;
+      }
+    }
+    return intersections % 2 == 1;
+  }
+
+  /// 선분이 점에서 시작하는 광선과 교차하는지 확인
+  bool _lineIntersectsRay(Offset p1, Offset p2, Offset point) {
+    if ((p1.dy <= point.dy && point.dy < p2.dy) ||
+        (p2.dy <= point.dy && point.dy < p1.dy)) {
+      final x = (p2.dx - p1.dx) * (point.dy - p1.dy) / (p2.dy - p1.dy) + p1.dx;
+      if (point.dx < x) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void _undo() {
@@ -128,6 +216,8 @@ class _DrawingEditorState extends State<DrawingEditor> {
             currentColor: selectedColor,
             currentWidth: strokeWidth,
             currentTool: selectedTool,
+            lassoPath: lassoPath,
+            selectedStrokes: selectedStrokes,
           ),
           size: Size.infinite,
         ),
@@ -198,8 +288,8 @@ class _DrawingEditorState extends State<DrawingEditor> {
         children: [
           _buildToolButton(Icons.brush, DrawingTool.pen),
           _buildToolButton(Icons.edit, DrawingTool.pencil),
-          _buildToolButton(Icons.format_color_text, DrawingTool.highlighter),
           _buildToolButton(Icons.cleaning_services, DrawingTool.eraser),
+          _buildToolButton(Icons.gesture, DrawingTool.lasso),
           const VerticalDivider(),
           ...colorPalette.map((color) => _buildColorButton(color)),
           const Spacer(),
@@ -209,11 +299,13 @@ class _DrawingEditorState extends State<DrawingEditor> {
               value: strokeWidth,
               min: 1,
               max: 10,
-              onChanged: (value) {
-                setState(() {
-                  strokeWidth = value;
-                });
-              },
+              onChanged: selectedTool == DrawingTool.lasso
+                  ? null
+                  : (value) {
+                      setState(() {
+                        strokeWidth = value;
+                      });
+                    },
             ),
           ),
           const SizedBox(width: 10),
@@ -225,6 +317,22 @@ class _DrawingEditorState extends State<DrawingEditor> {
             icon: const Icon(Icons.redo),
             onPressed: undoneStrokes.isNotEmpty ? _redo : null,
           ),
+          if (selectedStrokes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: TextButton.icon(
+                icon: const Icon(Icons.delete),
+                label: const Text('삭제'),
+                onPressed: () {
+                  setState(() {
+                    strokes.removeWhere((s) => selectedStrokes.contains(s));
+                    selectedStrokes.clear();
+                    widget.note.strokes = List.from(strokes);
+                    widget.onSave();
+                  });
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -507,6 +615,8 @@ class DrawingPainter extends CustomPainter {
   final Color currentColor;
   final double currentWidth;
   final DrawingTool currentTool;
+  final List<Offset> lassoPath;
+  final Set<DrawingStroke> selectedStrokes;
 
   DrawingPainter({
     required this.strokes,
@@ -514,12 +624,17 @@ class DrawingPainter extends CustomPainter {
     required this.currentColor,
     required this.currentWidth,
     required this.currentTool,
+    this.lassoPath = const [],
+    this.selectedStrokes = const {},
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1. 저장된 모든 스트로크 그리기
     for (var stroke in strokes) {
       final isHighlighter = stroke.tool == DrawingTool.highlighter;
+      final isSelected = selectedStrokes.contains(stroke);
+
       final paint = Paint()
         ..color = isHighlighter
             ? stroke.color.withValues(alpha: 0.3)
@@ -533,8 +648,20 @@ class DrawingPainter extends CustomPainter {
       for (int i = 0; i < stroke.points.length - 1; i++) {
         canvas.drawLine(stroke.points[i], stroke.points[i + 1], paint);
       }
+
+      // 선택된 스트로크는 파란색 테두리로 표시
+      if (isSelected) {
+        final boundingBox = _getBoundingBox(stroke.points);
+        final selectionPaint = Paint()
+          ..color = Colors.blue
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke;
+
+        canvas.drawRect(boundingBox, selectionPaint);
+      }
     }
 
+    // 2. 현재 그리는 스트로크
     if (currentStroke.isNotEmpty) {
       final isHighlighter = currentTool == DrawingTool.highlighter;
       final paint = Paint()
@@ -549,6 +676,40 @@ class DrawingPainter extends CustomPainter {
         canvas.drawLine(currentStroke[i], currentStroke[i + 1], paint);
       }
     }
+
+    // 3. 올가미 경로 그리기
+    if (lassoPath.isNotEmpty) {
+      final lassoPaint = Paint()
+        ..color = Colors.blue.withValues(alpha: 0.5)
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke;
+
+      for (int i = 0; i < lassoPath.length - 1; i++) {
+        canvas.drawLine(lassoPath[i], lassoPath[i + 1], lassoPaint);
+      }
+
+      // 올가미 경로 닫기
+      if (lassoPath.length > 2) {
+        canvas.drawLine(lassoPath.last, lassoPath.first, lassoPaint);
+      }
+    }
+  }
+
+  /// 점들의 경계 상자 구하기
+  Rect _getBoundingBox(List<Offset> points) {
+    double minX = points[0].dx;
+    double minY = points[0].dy;
+    double maxX = points[0].dx;
+    double maxY = points[0].dy;
+
+    for (var point in points) {
+      if (point.dx < minX) minX = point.dx;
+      if (point.dx > maxX) maxX = point.dx;
+      if (point.dy < minY) minY = point.dy;
+      if (point.dy > maxY) maxY = point.dy;
+    }
+
+    return Rect.fromLTRB(minX - 5, minY - 5, maxX + 5, maxY + 5);
   }
 
   @override
