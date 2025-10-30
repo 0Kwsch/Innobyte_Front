@@ -1,6 +1,7 @@
 // note_widgets.dart 파일 내용 .ㅇd
 
 import 'package:flutter/material.dart';
+import 'dart:async' show Timer;
 
 // 외부 파일에서 모델을 가져옵니다.
 import 'models.dart';
@@ -42,6 +43,10 @@ class _DrawingEditorState extends State<DrawingEditor> {
   DrawingStroke? draggingStroke;
   Offset? lastDragOffset;
 
+  // ==================== 직선 자동 보정 관련 변수 ====================
+  Timer? _straightLineTimer;
+  static const int _straightLineWaitMs = 500;
+
   final List<Color> colorPalette = [
     Colors.black,
     Colors.red,
@@ -56,6 +61,12 @@ class _DrawingEditorState extends State<DrawingEditor> {
   void initState() {
     super.initState();
     strokes = List.from(widget.note.strokes);
+  }
+
+  @override
+  void dispose() {
+    _straightLineTimer?.cancel();
+    super.dispose();
   }
 
   void _onPanStart(DragStartDetails details) {
@@ -103,17 +114,22 @@ class _DrawingEditorState extends State<DrawingEditor> {
         lassoPath = [];
       } else if (selectedStrokes.isEmpty && currentStroke.isNotEmpty) {
         // 일반 그리기 완료
-        strokes.add(
-          DrawingStroke(
-            points: List.from(currentStroke),
-            color: selectedColor,
-            width: strokeWidth,
-            tool: selectedTool,
-          ),
+        final newStroke = DrawingStroke(
+          points: List.from(currentStroke),
+          color: selectedColor,
+          width: strokeWidth,
+          tool: selectedTool,
         );
+
+        strokes.add(newStroke);
         currentStroke = [];
         widget.note.strokes = List.from(strokes);
         widget.onSave();
+
+        // 형광펜인 경우 직선 감지 타이머 시작
+        if (selectedTool == DrawingTool.highlighter) {
+          _startStraightLineDetection(newStroke);
+        }
       } else if (selectedStrokes.isNotEmpty) {
         // 드래그 이동 완료
         widget.note.strokes = List.from(strokes);
@@ -121,6 +137,115 @@ class _DrawingEditorState extends State<DrawingEditor> {
       }
       lastDragOffset = null;
     });
+  }
+
+  /// 형광펜 직선 감지 및 자동 보정
+  void _startStraightLineDetection(DrawingStroke stroke) {
+    _straightLineTimer?.cancel();
+
+    _straightLineTimer = Timer(const Duration(milliseconds: 500), () {
+      // 직선도가 높으면 자동으로 일직선으로 보정
+      if (_isStraightLine(stroke.points)) {
+        setState(() {
+          // 마지막 스트로크를 일직선으로 변경
+          if (strokes.isNotEmpty) {
+            final lastStroke = strokes.last;
+            if (lastStroke.points.length >= 2) {
+              // 시작점과 끝점을 잇는 일직선 생성
+              final straightPoints = _generateStraightLine(
+                lastStroke.points.first,
+                lastStroke.points.last,
+                lastStroke.points.length,
+              );
+
+              strokes[strokes.length - 1] = DrawingStroke(
+                points: straightPoints,
+                color: lastStroke.color,
+                width: lastStroke.width,
+                tool: lastStroke.tool,
+              );
+
+              widget.note.strokes = List.from(strokes);
+              widget.onSave();
+            }
+          }
+        });
+      }
+    });
+  }
+
+  /// 스트로크가 대략 직선인지 판단
+  bool _isStraightLine(List<Offset> points) {
+    if (points.length < 5) return false;
+
+    // 시작점과 끝점을 잇는 직선과 각 점의 거리를 계산
+    final startPoint = points.first;
+    final endPoint = points.last;
+
+    // 전체 거리
+    final totalDistance = (endPoint - startPoint).distance;
+    if (totalDistance < 10) return false; // 너무 짧으면 무시
+
+    // 각 점과 직선의 거리 계산
+    double maxDeviation = 0;
+    double totalDeviation = 0;
+    int deviationCount = 0;
+
+    for (int i = 1; i < points.length - 1; i++) {
+      final distance = _pointToLineDistance(
+        points[i],
+        startPoint,
+        endPoint,
+      );
+      maxDeviation = distance > maxDeviation ? distance : maxDeviation;
+      totalDeviation += distance;
+      deviationCount++;
+    }
+
+    // 평균 편차가 작으면 직선으로 판정
+    final avgDeviation = totalDeviation / deviationCount;
+    return avgDeviation < 15 && maxDeviation < 30; // 임계값 조정 가능
+  }
+
+  /// 점에서 선분까지의 거리 계산
+  double _pointToLineDistance(Offset point, Offset lineStart, Offset lineEnd) {
+    final dx = lineEnd.dx - lineStart.dx;
+    final dy = lineEnd.dy - lineStart.dy;
+    final denominator = dx * dx + dy * dy;
+
+    if (denominator == 0) {
+      // 시작점과 끝점이 같은 경우
+      return (point - lineStart).distance;
+    }
+
+    final t = ((point.dx - lineStart.dx) * dx + (point.dy - lineStart.dy) * dy) /
+        denominator;
+    final tClamped = t < 0 ? 0 : (t > 1 ? 1 : t);
+    final closestPoint = Offset(
+      lineStart.dx + tClamped * dx,
+      lineStart.dy + tClamped * dy,
+    );
+
+    return (point - closestPoint).distance;
+  }
+
+  /// 시작점과 끝점을 잇는 일직선 생성
+  List<Offset> _generateStraightLine(
+    Offset start,
+    Offset end,
+    int pointCount,
+  ) {
+    final straightPoints = <Offset>[];
+    for (int i = 0; i < pointCount; i++) {
+      final t = i / (pointCount - 1);
+      straightPoints.add(
+        Offset(
+          start.dx + (end.dx - start.dx) * t,
+          start.dy + (end.dy - start.dy) * t,
+        ),
+      );
+    }
+    return straightPoints;
   }
 
   /// 올가미 경로 내에 있는 스트로크 선택
