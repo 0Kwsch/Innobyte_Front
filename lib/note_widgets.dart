@@ -279,7 +279,7 @@ class _DrawingEditorState extends State<DrawingEditor> {
 
   Widget _buildDrawingToolbar() {
     return Container(
-      height: 50,
+      height: 60,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
@@ -287,37 +287,73 @@ class _DrawingEditorState extends State<DrawingEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _buildToolButton(Icons.brush, DrawingTool.pen),
-          _buildToolButton(Icons.edit, DrawingTool.pencil),
-          _buildToolButton(Icons.cleaning_services, DrawingTool.eraser),
-          _buildToolButton(Icons.gesture, DrawingTool.lasso),
-          const VerticalDivider(),
+          // 그리기 도구
+          _buildEnhancedToolButton(
+            icon: Icons.brush,
+            tool: DrawingTool.pen,
+            label: '볼펜',
+          ),
+          _buildEnhancedToolButton(
+            icon: Icons.edit,
+            tool: DrawingTool.highlighter,
+            label: '형광펜',
+          ),
+          _buildEnhancedToolButton(
+            icon: Icons.cleaning_services,
+            tool: DrawingTool.eraser,
+            label: '지우개',
+          ),
+          _buildEnhancedToolButton(
+            icon: Icons.gesture,
+            tool: DrawingTool.lasso,
+            label: '자유로운 곡선',
+          ),
+          const VerticalDivider(indent: 10, endIndent: 10),
+
+          // 색상 팔레트
           ...colorPalette.map((color) => _buildColorButton(color)),
           const Spacer(),
+
+          // 선 굵기 조절
           SizedBox(
             width: 150,
-            child: Slider(
-              value: strokeWidth,
-              min: 1,
-              max: 10,
-              onChanged: selectedTool == DrawingTool.lasso
-                  ? null
-                  : (value) {
-                      setState(() {
-                        strokeWidth = value;
-                      });
-                    },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Slider(
+                  value: strokeWidth,
+                  min: 1,
+                  max: 10,
+                  onChanged: selectedTool == DrawingTool.lasso
+                      ? null
+                      : (value) {
+                          setState(() {
+                            strokeWidth = value;
+                          });
+                        },
+                ),
+                Text(
+                  '${strokeWidth.toStringAsFixed(1)}px',
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 10),
+
+          // Undo/Redo
           IconButton(
             icon: const Icon(Icons.undo),
+            tooltip: '실행 취소',
             onPressed: strokes.isNotEmpty ? _undo : null,
           ),
           IconButton(
             icon: const Icon(Icons.redo),
+            tooltip: '다시 실행',
             onPressed: undoneStrokes.isNotEmpty ? _redo : null,
           ),
+
+          // 삭제 버튼
           if (selectedStrokes.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -339,23 +375,39 @@ class _DrawingEditorState extends State<DrawingEditor> {
     );
   }
 
-  Widget _buildToolButton(IconData icon, DrawingTool tool) {
+  /// 향상된 도구 버튼 - 라벨과 하이라이트 포함
+  Widget _buildEnhancedToolButton({
+    required IconData icon,
+    required DrawingTool tool,
+    required String label,
+  }) {
     final isSelected = selectedTool == tool;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: isSelected
-          ? BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(8),
-      )
-          : null,
-      child: IconButton(
-        icon: Icon(icon, color: Colors.black),
-        onPressed: () {
-          setState(() {
-            selectedTool = tool;
-          });
-        },
+    return Tooltip(
+      message: label,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: isSelected
+            ? BoxDecoration(
+                color: Colors.blue.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue, width: 2),
+              )
+            : BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+              ),
+        child: IconButton(
+          icon: Icon(
+            icon,
+            color: isSelected ? Colors.blue : Colors.black,
+            size: 24,
+          ),
+          onPressed: () {
+            setState(() {
+              selectedTool = tool;
+              selectedStrokes.clear(); // 도구 변경 시 선택 해제
+            });
+          },
+        ),
       ),
     );
   }
