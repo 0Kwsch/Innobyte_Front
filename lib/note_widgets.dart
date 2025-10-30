@@ -327,7 +327,7 @@ class NoteCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: isHovered ? 8 : 4,
                 offset: Offset(0, isHovered ? 4 : 2),
               ),
@@ -421,7 +421,7 @@ class NoteCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -440,7 +440,7 @@ class NoteCard extends StatelessWidget {
       left: 4,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withValues(alpha: 0.3),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -472,7 +472,7 @@ class NoteCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.more_vert, size: 20, color: Colors.white),
@@ -522,7 +522,7 @@ class DrawingPainter extends CustomPainter {
       final isHighlighter = stroke.tool == DrawingTool.highlighter;
       final paint = Paint()
         ..color = isHighlighter
-            ? stroke.color.withOpacity(0.3)
+            ? stroke.color.withValues(alpha: 0.3)
             : stroke.color
         ..strokeWidth = isHighlighter
             ? stroke.width * 2
@@ -539,7 +539,7 @@ class DrawingPainter extends CustomPainter {
       final isHighlighter = currentTool == DrawingTool.highlighter;
       final paint = Paint()
         ..color = isHighlighter
-            ? currentColor.withOpacity(0.3)
+            ? currentColor.withValues(alpha: 0.3)
             : currentColor
         ..strokeWidth = isHighlighter ? currentWidth * 2 : currentWidth
         ..strokeCap = StrokeCap.round

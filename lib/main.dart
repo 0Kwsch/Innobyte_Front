@@ -1,11 +1,9 @@
-// main.dart 파일 내용.ㅇ
-//?
+// main.dart - 앱 진입점 및 상태 관리
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 // 분리된 파일들을 임포트합니다.
 import 'login.dart';
-import 'notes_home.dart';
+import 'screens/notes_screen.dart';
 
 /// 앱의 시작점 - 메인 함수
 void main() {
