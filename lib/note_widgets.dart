@@ -47,6 +47,9 @@ class _DrawingEditorState extends State<DrawingEditor> {
   Timer? _straightLineTimer;
   bool _isStraightening = false; // 현재 직선 보정 중인지 여부
 
+  // ==================== 지우개 토글 관련 변수 ====================
+  DrawingTool? _previousTool; // 지우개 토글 전 이전 도구
+
   final List<Color> colorPalette = [
     Colors.black,
     Colors.red,
@@ -419,11 +422,7 @@ class _DrawingEditorState extends State<DrawingEditor> {
             tool: DrawingTool.highlighter,
             label: '형광펜',
           ),
-          _buildEnhancedToolButton(
-            icon: Icons.cleaning_services,
-            tool: DrawingTool.eraser,
-            label: '지우개',
-          ),
+          _buildEraserToggleButton(),
           _buildEnhancedToolButton(
             icon: Icons.gesture,
             tool: DrawingTool.lasso,
@@ -496,6 +495,44 @@ class _DrawingEditorState extends State<DrawingEditor> {
     );
   }
 
+  /// 지우개 토글 버튼 - 누르면 지우개 on/off
+  Widget _buildEraserToggleButton() {
+    final isEraserMode = selectedTool == DrawingTool.eraser;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: isEraserMode
+          ? BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue, width: 2),
+            )
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+            ),
+      child: IconButton(
+        icon: Icon(
+          Icons.cleaning_services,
+          color: isEraserMode ? Colors.blue : Colors.black,
+          size: 24,
+        ),
+        onPressed: () {
+          setState(() {
+            if (isEraserMode) {
+              // 지우개 모드 해제 - 이전 도구로 복귀 (없으면 볼펜)
+              selectedTool = _previousTool ?? DrawingTool.pen;
+              _previousTool = null;
+            } else {
+              // 지우개 모드 활성화 - 현재 도구 저장
+              _previousTool = selectedTool;
+              selectedTool = DrawingTool.eraser;
+            }
+            selectedStrokes.clear(); // 도구 변경 시 선택 해제
+          });
+        },
+      ),
+    );
+  }
+
   /// 향상된 도구 버튼 - 하이라이트 포함
   Widget _buildEnhancedToolButton({
     required IconData icon,
@@ -524,6 +561,7 @@ class _DrawingEditorState extends State<DrawingEditor> {
           setState(() {
             selectedTool = tool;
             selectedStrokes.clear(); // 도구 변경 시 선택 해제
+            _previousTool = null; // 다른 도구 선택 시 이전 도구 초기화
           });
         },
       ),
