@@ -886,9 +886,18 @@ class DrawingPainter extends CustomPainter {
     }
   }
 
-  /// 형광펜 스트로크를 예쁘게 그리기
+  /// 형광펜 스트로크를 예쁘게 그리기 (Path 기반으로 끊김 없이)
   void _drawHighlighterStroke(Canvas canvas, DrawingStroke stroke) {
-    // 배경: 반투명한 굵은 선
+    if (stroke.points.isEmpty) return;
+
+    // 배경: 반투명한 굵은 선 (Path 기반)
+    final backgroundPath = Path();
+    backgroundPath.moveTo(stroke.points[0].dx, stroke.points[0].dy);
+
+    for (int i = 1; i < stroke.points.length; i++) {
+      backgroundPath.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+    }
+
     final backgroundPaint = Paint()
       ..color = stroke.color.withValues(alpha: 0.25)
       ..strokeWidth = stroke.width * 3.5
@@ -896,11 +905,16 @@ class DrawingPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
-    for (int i = 0; i < stroke.points.length - 1; i++) {
-      canvas.drawLine(stroke.points[i], stroke.points[i + 1], backgroundPaint);
+    canvas.drawPath(backgroundPath, backgroundPaint);
+
+    // 전경: 더 진한 색상의 중간 선 (Path 기반)
+    final foregroundPath = Path();
+    foregroundPath.moveTo(stroke.points[0].dx, stroke.points[0].dy);
+
+    for (int i = 1; i < stroke.points.length; i++) {
+      foregroundPath.lineTo(stroke.points[i].dx, stroke.points[i].dy);
     }
 
-    // 전경: 더 진한 색상의 중간 선
     final foregroundPaint = Paint()
       ..color = stroke.color.withValues(alpha: 0.5)
       ..strokeWidth = stroke.width * 2.0
@@ -908,14 +922,21 @@ class DrawingPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
-    for (int i = 0; i < stroke.points.length - 1; i++) {
-      canvas.drawLine(stroke.points[i], stroke.points[i + 1], foregroundPaint);
-    }
+    canvas.drawPath(foregroundPath, foregroundPaint);
   }
 
-  /// 형광펜 현재 스트로크를 예쁘게 그리기 (그리는 중)
+  /// 형광펜 현재 스트로크를 예쁘게 그리기 (Path 기반으로 끊김 없이, 그리는 중)
   void _drawHighlighterStrokeForCurrent(Canvas canvas, List<Offset> points) {
-    // 배경: 반투명한 굵은 선
+    if (points.isEmpty) return;
+
+    // 배경: 반투명한 굵은 선 (Path 기반)
+    final backgroundPath = Path();
+    backgroundPath.moveTo(points[0].dx, points[0].dy);
+
+    for (int i = 1; i < points.length; i++) {
+      backgroundPath.lineTo(points[i].dx, points[i].dy);
+    }
+
     final backgroundPaint = Paint()
       ..color = currentColor.withValues(alpha: 0.25)
       ..strokeWidth = currentWidth * 3.5
@@ -923,11 +944,16 @@ class DrawingPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
-    for (int i = 0; i < points.length - 1; i++) {
-      canvas.drawLine(points[i], points[i + 1], backgroundPaint);
+    canvas.drawPath(backgroundPath, backgroundPaint);
+
+    // 전경: 더 진한 색상의 중간 선 (Path 기반)
+    final foregroundPath = Path();
+    foregroundPath.moveTo(points[0].dx, points[0].dy);
+
+    for (int i = 1; i < points.length; i++) {
+      foregroundPath.lineTo(points[i].dx, points[i].dy);
     }
 
-    // 전경: 더 진한 색상의 중간 선
     final foregroundPaint = Paint()
       ..color = currentColor.withValues(alpha: 0.5)
       ..strokeWidth = currentWidth * 2.0
@@ -935,9 +961,7 @@ class DrawingPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
-    for (int i = 0; i < points.length - 1; i++) {
-      canvas.drawLine(points[i], points[i + 1], foregroundPaint);
-    }
+    canvas.drawPath(foregroundPath, foregroundPaint);
   }
 
   /// 점들의 경계 상자 구하기
