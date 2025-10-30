@@ -121,8 +121,8 @@ class _DrawingEditorState extends State<DrawingEditor> {
     _straightLineTimer?.cancel();
     _isStraightening = false;
 
-    _straightLineTimer = Timer(const Duration(milliseconds: 500), () {
-      // 0.5초 후 현재 스트로크가 직선인지 판단
+    _straightLineTimer = Timer(const Duration(milliseconds: 1000), () {
+      // 1초 후 현재 스트로크가 직선인지 판단
       if (currentStroke.length >= 5 && _isStraightLine(currentStroke)) {
         setState(() {
           // 직선으로 보정
