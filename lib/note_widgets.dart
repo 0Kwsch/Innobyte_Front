@@ -197,6 +197,7 @@ class _DrawingEditorState extends State<DrawingEditor> {
       children: [
         _buildEditorAppBar(),
         _buildDrawingToolbar(),
+        if (widget.note.attachedPdfs.isNotEmpty) _buildPDFSection(),
         Expanded(child: _buildCanvas()),
       ],
     );
@@ -382,6 +383,112 @@ class _DrawingEditorState extends State<DrawingEditor> {
         child: isSelected
             ? const Icon(Icons.check, color: Colors.white, size: 16)
             : null,
+      ),
+    );
+  }
+
+  /// PDF 파일 섹션 빌드
+  Widget _buildPDFSection() {
+    return Container(
+      color: Colors.grey[100],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.picture_as_pdf, color: Colors.red, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'PDF 파일 (${widget.note.attachedPdfs.length})',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: widget.note.attachedPdfs.map((pdf) {
+                return Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      // PDF 열기 기능 (나중에 구현)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${pdf.name} 열기 준비 중...'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf, color: Colors.red, size: 24),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 120,
+                              child: Text(
+                                pdf.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  widget.note.attachedPdfs.removeWhere((p) => p.path == pdf.path);
+                                });
+                              },
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.grey,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${pdf.fileSize.toStringAsFixed(2)} MB',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
