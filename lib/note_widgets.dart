@@ -45,7 +45,7 @@ class _DrawingEditorState extends State<DrawingEditor> {
 
   // ==================== 직선 자동 보정 관련 변수 ====================
   Timer? _straightLineTimer;
-  static const int _straightLineWaitMs = 500;
+  bool _isStraightening = false; // 현재 직선 보정 중인지 여부
 
   final List<Color> colorPalette = [
     Colors.black,
@@ -90,6 +90,9 @@ class _DrawingEditorState extends State<DrawingEditor> {
       if (selectedTool == DrawingTool.lasso) {
         // 올가미 경로 추가
         lassoPath.add(details.localPosition);
+        // 올가미는 타이머 취소
+        _straightLineTimer?.cancel();
+        _isStraightening = false;
       } else if (selectedStrokes.isNotEmpty && lastDragOffset != null) {
         // 선택된 스트로크 이동
         final delta = details.localPosition - lastDragOffset!;
@@ -102,11 +105,42 @@ class _DrawingEditorState extends State<DrawingEditor> {
       } else {
         // 일반 그리기
         currentStroke.add(details.localPosition);
+
+        // 형광펜인 경우 타이머 시작 (첫 점 추가할 때만)
+        if (selectedTool == DrawingTool.highlighter &&
+            currentStroke.length == 2 &&
+            !_isStraightening) {
+          _startHighlighterStraightLineTimer();
+        }
+      }
+    });
+  }
+
+  /// 형광펜 직선 자동 보정 타이머 시작
+  void _startHighlighterStraightLineTimer() {
+    _straightLineTimer?.cancel();
+    _isStraightening = false;
+
+    _straightLineTimer = Timer(const Duration(milliseconds: 500), () {
+      // 0.5초 후 현재 스트로크가 직선인지 판단
+      if (currentStroke.length >= 5 && _isStraightLine(currentStroke)) {
+        setState(() {
+          // 직선으로 보정
+          _isStraightening = true;
+          currentStroke = _generateStraightLine(
+            currentStroke.first,
+            currentStroke.last,
+            currentStroke.length,
+          );
+        });
       }
     });
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // 타이머 취소
+    _straightLineTimer?.cancel();
+
     setState(() {
       if (selectedTool == DrawingTool.lasso && lassoPath.isNotEmpty) {
         // 올가미로 선택된 스트로크 찾기
@@ -126,51 +160,13 @@ class _DrawingEditorState extends State<DrawingEditor> {
         widget.note.strokes = List.from(strokes);
         widget.onSave();
 
-        // 형광펜인 경우 직선 감지 타이머 시작
-        if (selectedTool == DrawingTool.highlighter) {
-          _startStraightLineDetection(newStroke);
-        }
+        _isStraightening = false;
       } else if (selectedStrokes.isNotEmpty) {
         // 드래그 이동 완료
         widget.note.strokes = List.from(strokes);
         widget.onSave();
       }
       lastDragOffset = null;
-    });
-  }
-
-  /// 형광펜 직선 감지 및 자동 보정
-  void _startStraightLineDetection(DrawingStroke stroke) {
-    _straightLineTimer?.cancel();
-
-    _straightLineTimer = Timer(const Duration(milliseconds: 500), () {
-      // 직선도가 높으면 자동으로 일직선으로 보정
-      if (_isStraightLine(stroke.points)) {
-        setState(() {
-          // 마지막 스트로크를 일직선으로 변경
-          if (strokes.isNotEmpty) {
-            final lastStroke = strokes.last;
-            if (lastStroke.points.length >= 2) {
-              // 시작점과 끝점을 잇는 일직선 생성
-              final straightPoints = _generateStraightLine(
-                lastStroke.points.first,
-                lastStroke.points.last,
-                lastStroke.points.length,
-              );
-
-              strokes[strokes.length - 1] = DrawingStroke(
-                points: straightPoints,
-                color: lastStroke.color,
-                width: lastStroke.width,
-                tool: lastStroke.tool,
-              );
-
-              widget.note.strokes = List.from(strokes);
-              widget.onSave();
-            }
-          }
-        });
-      }
     });
   }
 
