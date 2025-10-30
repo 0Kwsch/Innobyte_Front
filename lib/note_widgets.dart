@@ -375,39 +375,36 @@ class _DrawingEditorState extends State<DrawingEditor> {
     );
   }
 
-  /// 향상된 도구 버튼 - 라벨과 하이라이트 포함
+  /// 향상된 도구 버튼 - 하이라이트 포함
   Widget _buildEnhancedToolButton({
     required IconData icon,
     required DrawingTool tool,
     required String label,
   }) {
     final isSelected = selectedTool == tool;
-    return Tooltip(
-      message: label,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: isSelected
-            ? BoxDecoration(
-                color: Colors.blue.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue, width: 2),
-              )
-            : BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-              ),
-        child: IconButton(
-          icon: Icon(
-            icon,
-            color: isSelected ? Colors.blue : Colors.black,
-            size: 24,
-          ),
-          onPressed: () {
-            setState(() {
-              selectedTool = tool;
-              selectedStrokes.clear(); // 도구 변경 시 선택 해제
-            });
-          },
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: isSelected
+          ? BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue, width: 2),
+            )
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+            ),
+      child: IconButton(
+        icon: Icon(
+          icon,
+          color: isSelected ? Colors.blue : Colors.black,
+          size: 24,
         ),
+        onPressed: () {
+          setState(() {
+            selectedTool = tool;
+            selectedStrokes.clear(); // 도구 변경 시 선택 해제
+          });
+        },
       ),
     );
   }
@@ -792,20 +789,36 @@ class DrawingPainter extends CustomPainter {
     // 1. 저장된 모든 스트로크 그리기
     for (var stroke in strokes) {
       final isHighlighter = stroke.tool == DrawingTool.highlighter;
+      final isEraser = stroke.tool == DrawingTool.eraser;
       final isSelected = selectedStrokes.contains(stroke);
 
-      final paint = Paint()
-        ..color = isHighlighter
-            ? stroke.color.withValues(alpha: 0.3)
-            : stroke.color
-        ..strokeWidth = isHighlighter
-            ? stroke.width * 2
-            : stroke.width
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
+      if (isHighlighter) {
+        // 형광펜: 예쁜 반투명 효과로 렌더링
+        _drawHighlighterStroke(canvas, stroke);
+      } else if (isEraser) {
+        // 지우개: 흰색 선으로 표현 (투명 처리용)
+        final paint = Paint()
+          ..color = Colors.white
+          ..strokeWidth = stroke.width * 2.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
 
-      for (int i = 0; i < stroke.points.length - 1; i++) {
-        canvas.drawLine(stroke.points[i], stroke.points[i + 1], paint);
+        for (int i = 0; i < stroke.points.length - 1; i++) {
+          canvas.drawLine(stroke.points[i], stroke.points[i + 1], paint);
+        }
+      } else {
+        // 일반 펜: 기본 그리기
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.width
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+
+        for (int i = 0; i < stroke.points.length - 1; i++) {
+          canvas.drawLine(stroke.points[i], stroke.points[i + 1], paint);
+        }
       }
 
       // 선택된 스트로크는 파란색 테두리로 표시
@@ -823,16 +836,35 @@ class DrawingPainter extends CustomPainter {
     // 2. 현재 그리는 스트로크
     if (currentStroke.isNotEmpty) {
       final isHighlighter = currentTool == DrawingTool.highlighter;
-      final paint = Paint()
-        ..color = isHighlighter
-            ? currentColor.withValues(alpha: 0.3)
-            : currentColor
-        ..strokeWidth = isHighlighter ? currentWidth * 2 : currentWidth
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
+      final isEraser = currentTool == DrawingTool.eraser;
 
-      for (int i = 0; i < currentStroke.length - 1; i++) {
-        canvas.drawLine(currentStroke[i], currentStroke[i + 1], paint);
+      if (isHighlighter) {
+        // 형광펜: 예쁜 반투명 효과로 렌더링
+        _drawHighlighterStrokeForCurrent(canvas, currentStroke);
+      } else if (isEraser) {
+        // 지우개: 흰색 선으로 표현
+        final paint = Paint()
+          ..color = Colors.white
+          ..strokeWidth = currentWidth * 2.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+
+        for (int i = 0; i < currentStroke.length - 1; i++) {
+          canvas.drawLine(currentStroke[i], currentStroke[i + 1], paint);
+        }
+      } else {
+        // 일반 펜: 기본 그리기
+        final paint = Paint()
+          ..color = currentColor
+          ..strokeWidth = currentWidth
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+
+        for (int i = 0; i < currentStroke.length - 1; i++) {
+          canvas.drawLine(currentStroke[i], currentStroke[i + 1], paint);
+        }
       }
     }
 
@@ -851,6 +883,60 @@ class DrawingPainter extends CustomPainter {
       if (lassoPath.length > 2) {
         canvas.drawLine(lassoPath.last, lassoPath.first, lassoPaint);
       }
+    }
+  }
+
+  /// 형광펜 스트로크를 예쁘게 그리기
+  void _drawHighlighterStroke(Canvas canvas, DrawingStroke stroke) {
+    // 배경: 반투명한 굵은 선
+    final backgroundPaint = Paint()
+      ..color = stroke.color.withValues(alpha: 0.25)
+      ..strokeWidth = stroke.width * 3.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < stroke.points.length - 1; i++) {
+      canvas.drawLine(stroke.points[i], stroke.points[i + 1], backgroundPaint);
+    }
+
+    // 전경: 더 진한 색상의 중간 선
+    final foregroundPaint = Paint()
+      ..color = stroke.color.withValues(alpha: 0.5)
+      ..strokeWidth = stroke.width * 2.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < stroke.points.length - 1; i++) {
+      canvas.drawLine(stroke.points[i], stroke.points[i + 1], foregroundPaint);
+    }
+  }
+
+  /// 형광펜 현재 스트로크를 예쁘게 그리기 (그리는 중)
+  void _drawHighlighterStrokeForCurrent(Canvas canvas, List<Offset> points) {
+    // 배경: 반투명한 굵은 선
+    final backgroundPaint = Paint()
+      ..color = currentColor.withValues(alpha: 0.25)
+      ..strokeWidth = currentWidth * 3.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      canvas.drawLine(points[i], points[i + 1], backgroundPaint);
+    }
+
+    // 전경: 더 진한 색상의 중간 선
+    final foregroundPaint = Paint()
+      ..color = currentColor.withValues(alpha: 0.5)
+      ..strokeWidth = currentWidth * 2.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      canvas.drawLine(points[i], points[i + 1], foregroundPaint);
     }
   }
 
