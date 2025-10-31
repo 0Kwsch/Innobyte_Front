@@ -728,7 +728,7 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -839,7 +839,7 @@ class _DrawingPainter extends CustomPainter {
         paint.blendMode = BlendMode.clear;
         paint.color = Colors.transparent;
       } else if (selectedTool == DrawingTool.highlighter) {
-        paint.color = selectedColor.withOpacity(0.4);
+        paint.color = selectedColor.withValues(alpha: 0.4);
       } else {
         paint.color = selectedColor;
       }
@@ -861,7 +861,7 @@ class _DrawingPainter extends CustomPainter {
       paint.blendMode = BlendMode.clear;
       paint.color = Colors.transparent;
     } else if (stroke.tool == DrawingTool.highlighter) {
-      paint.color = stroke.color.withOpacity(0.4);
+      paint.color = stroke.color.withValues(alpha: 0.4);
     } else {
       paint.color = stroke.color;
     }
